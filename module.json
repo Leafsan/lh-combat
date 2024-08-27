@@ -15,8 +15,8 @@
   ],
   "description": "A module to manage combat scenarios in LogHorizon RPG system.",
   "url": "https://github.com/Leafsan/lh-combat",
-  "manifest": "https://github.com/Leafsan/lh-combat/releases/latest/download/module.json",
-  "download": "https://github.com/Leafsan/lh-combat/releases/latest/download/lh-combat.zip",
+  "manifest": "https://raw.githubusercontent.com/Leafsan/lh-combat/main/module.json",
+  "download": "https://github.com/Leafsan/lh-combat/releases/download/first/loghorizon-combat-manager.zip",
   "license": "MIT",
   "esmodules": ["scripts/main.js"]
 }
