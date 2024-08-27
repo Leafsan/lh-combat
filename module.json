@@ -1,0 +1,22 @@
+{
+  "id": "loghorizon-combat-manager",
+  "title": "LogHorizon Combat Manager",
+  "version": "1.0.0",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "12"
+  },
+  "authors": [
+    {
+      "name": "Wookyung Choi",
+      "email": "cwk950906@gmail.com",
+      "flags": {}
+    }
+  ],
+  "description": "A module to manage combat scenarios in LogHorizon RPG system.",
+  "url": "https://github.com/Leafsan/lh-combat",
+  "manifest": "https://github.com/Leafsan/lh-combat/releases/latest/download/module.json",
+  "download": "https://github.com/Leafsan/lh-combat/releases/latest/download/lh-combat.zip",
+  "license": "MIT",
+  "esmodules": ["scripts/main.js"]
+}
