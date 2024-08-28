@@ -89,7 +89,7 @@ export class CustomCombat extends Combat {
   }
 
   async runCustomProcess(processName) {
-    console.log(Running ${processName} process.);
+    console.log(`Running ${processName} process.`);
     switch (processName) {
       case "setup":
         await this.setupProcess();
