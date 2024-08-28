@@ -1,3 +1,4 @@
+import { handleInitiativeTimingItems } from "./initiative_process/useInitiativeTiming.js";
 import { setUnactedState } from "./setup_process/setUnactedState.js";
 import { handleSetupTimingItems } from "./setup_process/useSetupTiming.js";
 
@@ -126,10 +127,72 @@ export class CustomCombat extends Combat {
     console.log(message);
     ui.notifications.info(message);
     ChatMessage.create({ content: message });
+
+    // 캐릭터의 이니셔티브 순서로 타이밍이 이니셔티브인 아이템/스킬을 확인
+    await handleInitiativeTimingItems();
+
+    const combatants = game.combat.combatants.contents;
+
+    // 각 캐릭터들의 미행동 상태를 콘솔로 출력
+    combatants.forEach((c) => {
+      console.log(
+        `${c.actor.name}의 미행동 상태: ${c.actor.system["battle-status"].unacted}`
+      );
+    });
+
+    const unactedCombatants = combatants.filter(
+      (c) => c.actor.system["battle-status"].unacted === true
+    );
+
+    const waitingCombatants = combatants.filter(
+      (c) => c.actor.system["battle-status"].waiting === true
+    );
+
+    if (unactedCombatants.length === 0) {
+      console.log("미행동 상태인 캐릭터가 없습니다.");
+      this.runCustomProcess("cleanup");
+      return;
+    }
+
+    let priorityCombatant;
+
+    if (waitingCombatants.length > 0) {
+      // [대기] 상태 중 [우선권]이 가장 낮은 캐릭터 선택
+      priorityCombatant = waitingCombatants.sort(
+        (a, b) =>
+          a.actor.system["battle-status"].initiative -
+          b.actor.system["battle-status"].initiative
+      )[0];
+    }
+
+    // [미행동] 상태인 캐릭터 중 [우선권]이 가장 높은 캐릭터 선택
+    priorityCombatant = unactedCombatants.sort(
+      (a, b) =>
+        b.actor.system["battle-status"].initiative -
+        a.actor.system["battle-status"].initiative
+    )[0];
+
+    console.log(
+      `우선권이 있는 캐릭터: ${priorityCombatant.actor.name} (${priorityCombatant.actor.system["battle-status"].initiative})`
+    );
+
+    let combat = game.combat;
+    combat.update({
+      turn: combat.turns.findIndex((t) => t.id === priorityCombatant.id),
+    });
+
+    priorityCombatant.actor.update({ "system.battle-status.actionPoints": 5 });
   }
 
   async mainProcess() {
     const message = "메인 프로세스를 실행합니다.";
+    // get turn combatant
+    let combat = game.combat;
+
+    let currentCombatant = combat.combatants.get(combat.current.combatantId);
+
+    console.log(`${currentCombatant}의 메인 프로세스를 실행합니다.`);
+    console.log(currentCombatant);
     console.log(message);
     ui.notifications.info(message);
     ChatMessage.create({ content: message });
