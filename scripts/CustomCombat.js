@@ -7,9 +7,10 @@ export class CustomCombat extends Combat {
     this.customProcessIndex = 0;
     this.customProcesses = ["setup", "initiative", "main", "cleanup"];
     this.currentProcess = this.customProcesses[this.customProcessIndex];
+    this.isSetupDone = false; // 셋업 완료 플래그
   }
 
-  // Combat 시작 시 이니셔티브 값을 등록하고 셋업 프로세스를 실행
+  // Combat 시작 시 이니셔티브 값을 등록하고 기본 전투 시작 동작을 수행
   async startCombat() {
     let ids = [];
 
@@ -22,6 +23,9 @@ export class CustomCombat extends Combat {
 
     // 기본 전투 시작 동작을 수행
     await super.startCombat();
+
+    // 라운드를 1로 설정
+    await this.update({ round: 1 });
   }
 
   async rollInitiative(
@@ -72,17 +76,25 @@ export class CustomCombat extends Combat {
   }
 
   async nextTurn() {
-    if (this.customProcessIndex < this.customProcesses.length) {
-      const processName = this.customProcesses[this.customProcessIndex];
-      this.currentProcess = processName;
-      await this.runCustomProcess(processName);
-
-      // Move to the next process
-      this.customProcessIndex++;
+    if (!this.isSetupDone) {
+      // 첫 턴에서 셋업 프로세스를 실행
+      this.currentProcess = "setup";
+      await this.runCustomProcess(this.currentProcess);
+      this.isSetupDone = true; // 셋업 완료 플래그 설정
     } else {
-      // Reset index and proceed to the next round
-      this.customProcessIndex = 0;
-      await super.nextTurn(); // Call the original nextTurn to proceed to the next turn
+      // 이후 턴에서 지정된 프로세스를 실행
+      if (this.customProcessIndex < this.customProcesses.length) {
+        const processName = this.customProcesses[this.customProcessIndex];
+        this.currentProcess = processName;
+        await this.runCustomProcess(processName);
+
+        // Move to the next process
+        this.customProcessIndex++;
+      } else {
+        // Reset index and proceed to the next round
+        this.customProcessIndex = 0;
+        await super.nextTurn(); // Call the original nextTurn to proceed to the next turn
+      }
     }
 
     ui.combat.render(); // UI를 업데이트
