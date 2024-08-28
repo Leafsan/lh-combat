@@ -1,34 +1,23 @@
-import { CustomRoundTrackerManager } from "./managers/round-tracker-manager.js";
+import { CustomCombat } from "./CustomCombat.js";
 
-Hooks.once("init", async function () {
-  console.log(
-    "Simple Custom Rounds | Initializing custom round tracker manager"
-  );
-
-  Hooks.on("combatStart", CustomRoundTrackerManager.onCombatStart);
-
-  Hooks.on("updateCombat", (combat, changed) => {
-    if (changed.turn !== undefined) {
-      handleTurnChange(combat);
-    }
-  });
+Hooks.on("init", () => {
+  CONFIG.Combat.documentClass = CustomCombat;
 });
 
 Hooks.on("ready", () => {
-  console.log("Simple Custom Rounds | Module is ready");
+  console.log("Log Horizon Combat Manager | Ready");
+
+  window.macroCall = macroCall;
 });
 
-function handleTurnChange(combat) {
-  const currentCombatant = combat.combatants.get(combat.current?.combatantId);
-  const previousCombatant = combat.combatants.get(combat.previous?.combatantId);
-
-  if (previousCombatant) {
-    CustomRoundTrackerManager.onSetupTurnEnd(combat, previousCombatant);
-    CustomRoundTrackerManager.onCleanupTurnEnd(combat, previousCombatant);
+Hooks.on("renderCombatTracker", (app, html, data) => {
+  const combat = game.combats.active;
+  if (combat && combat.currentProcess) {
+    const processElement = `<div class="combat-process">Current Process: <strong>${combat.currentProcess}</strong></div>`;
+    html.find(".combat-tracker-header").append(processElement);
   }
+});
 
-  if (currentCombatant) {
-    CustomRoundTrackerManager.onSetupTurnStart(combat, currentCombatant);
-    CustomRoundTrackerManager.onCleanupTurnStart(combat, currentCombatant);
-  }
+export function macroCall() {
+  console.log("test");
 }
