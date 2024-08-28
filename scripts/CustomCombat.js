@@ -9,50 +9,83 @@ export class CustomCombat extends Combat {
     this.currentProcess = this.customProcesses[this.customProcessIndex];
   }
 
+  // Combat 시작 시 이니셔티브 값을 등록하고 셋업 프로세스를 실행
   async startCombat() {
+    let ids = [];
+
+    this.combatants.forEach((combatant) => {
+      ids.push(combatant.id);
+    });
+
+    // 이니셔티브 값을 계산하여 설정
+    await this.rollInitiative(ids);
+
     // 기본 전투 시작 동작을 수행
     await super.startCombat();
-
-    // 셋업 프로세스 실행
-    await this.runCustomProcess("setup");
-
-    // 이니셔티브를 계산 및 설정
-    await this.handleInitiative();
   }
 
-  async handleInitiative() {
-    const combatants = game.combat.combatants.contents;
-    const updates = combatants.map((c) => ({
-      _id: c.id,
-      initiative: c.actor.system.battle - status.initiative.mod || 0,
-    }));
+  async rollInitiative(
+    ids,
+    { formula = null, updateTurn = true, messageOptions = {} } = {}
+  ) {
+    // Structure input data
+    ids = typeof ids === "string" ? [ids] : ids;
+    const currentId = this.combatant?.id;
+    let combatantUpdates = [];
+    for (const id of ids) {
+      // Get Combatant data
+      const c = this.combatants.get(id, { strict: true });
 
-    // 이니셔티브 수치로 전투 턴을 정렬
-    updates.sort((a, b) => b.initiative - a.initiative);
+      let Init;
+      if (c.actor.type === "character") {
+        Init = c.actor.system["battle-status"].initiative.total ?? 0;
+      } else {
+        Init = c.actor.system["battle-status"].initiative ?? 0;
+      }
 
-    // 전투 턴 순서 업데이트
-    await this.updateEmbeddedDocuments("Combatant", updates);
-    // 전투의 현재 턴을 첫 번째 이니셔티브로 설정
-    await this.update({ turn: 0 });
+      // Do not roll for defeated combatants
+      if (c.defeated) continue;
 
-    ui.combat.render(); // UI를 업데이트
+      if (c.actor.type === "character") {
+        Init += 0.1; // Slight adjustment for characters
+      }
+
+      // Draw initiative
+      combatantUpdates.push({
+        _id: c.id,
+        initiative: Init,
+      });
+    }
+
+    // Ensure the turn order remains with the same combatant
+    if (updateTurn && currentId) {
+      await this.update({
+        turn: this.turns.findIndex((t) => t.id === currentId),
+      });
+    }
+
+    // Update multiple combatants
+    await this.updateEmbeddedDocuments("Combatant", combatantUpdates);
+
+    // Return the updated Combat
+    return this;
   }
 
-  async nextRound() {
-    this.customProcessIndex = 0;
-    this.currentProcess = this.customProcesses[this.customProcessIndex];
-    await this.runCustomProcess(this.currentProcess);
-
-    if (this.customProcessIndex < this.customProcesses.length - 1) {
-      this.customProcessIndex++;
+  async nextTurn() {
+    if (this.customProcessIndex < this.customProcesses.length) {
       const processName = this.customProcesses[this.customProcessIndex];
       this.currentProcess = processName;
       await this.runCustomProcess(processName);
+
+      // Move to the next process
+      this.customProcessIndex++;
     } else {
-      await super.nextRound();
+      // Reset index and proceed to the next round
+      this.customProcessIndex = 0;
+      await super.nextTurn(); // Call the original nextTurn to proceed to the next turn
     }
 
-    ui.combat.render(); // UI 업데이트
+    ui.combat.render(); // UI를 업데이트
   }
 
   async runCustomProcess(processName) {
