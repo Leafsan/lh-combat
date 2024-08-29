@@ -170,11 +170,13 @@ export class CustomCombat extends Combat {
 
     const sortedUnactedCombatants = combatants
       .filter((c) => c.actor.system["battle-status"].unacted === true)
+      .filter((c) => c.actor.system["battle-status"].waiting === false)
       .sort((a, b) => b.initiative - a.initiative);
 
     console.log(sortedUnactedCombatants);
 
     const sortedWaitingCombatants = combatants
+      .filter((c) => c.actor.system["battle-status"].unacted === true)
       .filter((c) => c.actor.system["battle-status"].waiting === true)
       .sort((a, b) => a.initiative - b.initiative);
 
@@ -185,7 +187,7 @@ export class CustomCombat extends Combat {
     }
     if (
       sortedWaitingCombatants.length > 0 &&
-      sortedUnactedCombatants.length === sortedWaitingCombatants.length
+      sortedUnactedCombatants.length === 0
     ) {
       priorityCombatant = sortedWaitingCombatants[0];
     }
@@ -215,11 +217,42 @@ export class CustomCombat extends Combat {
 
     let currentCombatant = combat.combatants.get(combat.current.combatantId);
 
+    const actor = currentCombatant.actor;
+
     console.log(`${currentCombatant.actor.name}의 메인 프로세스를 실행합니다.`);
     console.log(currentCombatant);
     console.log(message);
     ui.notifications.info(message);
     ChatMessage.create({ content: message });
+
+    actor.system["battle-status"].unacted = false;
+
+    if (actor.system["battle-status"].waiting === false) {
+      new Dialog({
+        title: `${actor.name}의 대기 상태 전환`,
+        content: `
+        <p>대기 상태로 전환하시겠습니까?</p>
+      `,
+        buttons: {
+          yes: {
+            icon: '<i class="fas fa-check"></i>',
+            label: "예",
+            callback: async () => {
+              actor.system["battle-status"].waiting = true;
+              actor.system["battle-status"].unacted = true;
+              await combat.nextTurn();
+            },
+          },
+          no: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "아니오",
+          },
+        },
+      }).render(true);
+    } else {
+      actor.system["battle-status"].waiting = false;
+      actor.system["battle-status"].unacted = false;
+    }
   }
 
   async cleanupProcess() {
