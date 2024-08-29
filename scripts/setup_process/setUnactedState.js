@@ -11,12 +11,11 @@ export async function setUnactedState() {
     let actor = combatant.actor;
     if (actor.system.health.value > 0) {
       // HP가 0이 아닌 경우 [미행동] 상태로 설정
-      await actor.update({
-        "system.battle-status.unacted": true, // 예시로 "unacted" 상태가 "미행동" 상태라고 가정
-      });
+      actor.system["battle-status"].unacted = true;
 
       const actorName = actor.name;
       const actionMessage = `${actorName}는 [미행동] 상태가 되었습니다.`;
+      console.log(actor.system["battle-status"].unacted);
       console.log(actionMessage);
       ChatMessage.create({ content: actionMessage });
     } else {

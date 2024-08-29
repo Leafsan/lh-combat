@@ -10,6 +10,13 @@ export async function handleInitiativeTimingItems() {
       (item) => item.system.timing === "이니셔티브"
     );
 
+    if (actor.system.health.value === 0) {
+      const noActionMessage = `${actor.name}는 행동 불능으로 액션이 불가합니다.`;
+      console.log(noActionMessage);
+      ChatMessage.create({ content: noActionMessage });
+      continue;
+    }
+
     if (items.length > 0) {
       // 드롭다운으로 선택지 제공
       initiativeItems = items.map((item) => {

@@ -9,6 +9,13 @@ export async function handleSetupTimingItems() {
 
     const items = actor.items.filter((item) => item.system.timing === "셋업");
 
+    if (actor.system.health.value === 0) {
+      const noActionMessage = `${actor.name}는 행동 불능으로 액션이 불가합니다.`;
+      console.log(noActionMessage);
+      ChatMessage.create({ content: noActionMessage });
+      continue;
+    }
+
     if (items.length > 0) {
       setupItems = items.map((item) => {
         return {
