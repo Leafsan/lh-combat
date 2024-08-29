@@ -1,4 +1,5 @@
 import { CustomCombat } from "./CustomCombat.js";
+import "./sq/sqManager.js";
 
 Hooks.on("init", () => {
   CONFIG.Combat.documentClass = CustomCombat;
@@ -6,8 +7,6 @@ Hooks.on("init", () => {
 
 Hooks.on("ready", () => {
   console.log("Log Horizon Combat Manager | Ready");
-
-  window.macroCall = macroCall;
 });
 
 Hooks.on("renderCombatTracker", (app, html, data) => {
@@ -17,7 +16,3 @@ Hooks.on("renderCombatTracker", (app, html, data) => {
     html.find(".combat-tracker-header").append(processElement);
   }
 });
-
-export function macroCall() {
-  console.log("test");
-}

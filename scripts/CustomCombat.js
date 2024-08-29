@@ -1,6 +1,9 @@
+import { doPoison } from "./cleanup_process/poison.js";
+import { doRegen } from "./cleanup_process/regen.js";
 import { handleInitiativeTimingItems } from "./initiative_process/useInitiativeTiming.js";
 import { setUnactedState } from "./setup_process/setUnactedState.js";
 import { handleSetupTimingItems } from "./setup_process/useSetupTiming.js";
+import { resetAllPlayersHate } from "./util/hateReset.js";
 
 export class CustomCombat extends Combat {
   constructor(data, context) {
@@ -18,6 +21,8 @@ export class CustomCombat extends Combat {
       ids.push(combatant.id);
     });
 
+    await resetAllPlayersHate();
+
     // 기본 전투 시작 동작을 수행
     await super.startCombat();
 
@@ -25,6 +30,17 @@ export class CustomCombat extends Combat {
     await this.rollInitiative(ids);
     this.runCustomProcess("setup");
     this.customProcessIndex = 1;
+  }
+
+  async endCombat() {
+    return Dialog.confirm({
+      title: game.i18n.localize("COMBAT.EndTitle"),
+      content: `<p>${game.i18n.localize("COMBAT.EndConfirmation")}</p>`,
+      yes: async () => {
+        this.delete();
+        await resetAllPlayersHate();
+      },
+    });
   }
 
   async rollInitiative(
@@ -42,7 +58,6 @@ export class CustomCombat extends Combat {
       c.actor.system["battle-status"].unacted = false;
       c.actor.system["battle-status"].waiting = false;
       c.actor.system["battle-status"].actionPoints = 0;
-      console.log(c.actor.system["battle-status"]);
 
       let Init;
       if (c.actor.type === "character") {
@@ -114,7 +129,6 @@ export class CustomCombat extends Combat {
   }
 
   async runCustomProcess(processName) {
-    console.log(`Running ${processName} process.`);
     switch (processName) {
       case "setup":
         await this.setupProcess();
@@ -133,9 +147,8 @@ export class CustomCombat extends Combat {
 
   async setupProcess() {
     const message = "셋업 프로세스를 실행합니다.";
-    console.log(message);
     ui.notifications.info(message);
-    ChatMessage.create({ content: message });
+    ChatMessage.create({ content: `<h2>셋업 프로세스 개시</h2>` });
 
     // 전투에 참가 중인 캐릭터를 [미행동] 상태로 설정
     await setUnactedState();
@@ -143,44 +156,42 @@ export class CustomCombat extends Combat {
     // 캐릭터의 이니셔티브 순서로 타이밍이 셋업인 아이템/스킬을 확인
     await handleSetupTimingItems();
 
-    ChatMessage.create({ content: "셋업 프로세스가 완료되었습니다." });
+    await ChatMessage.create({
+      content: "<h3>셋업 프로세스가 완료되었습니다.</h3>",
+    });
   }
 
   async initiativeProcess() {
     const message = "이니셔티브 프로세스를 실행합니다.";
-    console.log(message);
     ui.notifications.info(message);
-    ChatMessage.create({ content: message });
+    ChatMessage.create({ content: `<h2>이니셔티브 프로세스 개시</h2>` });
 
     // 캐릭터의 이니셔티브 순서로 타이밍이 이니셔티브인 아이템/스킬을 확인
     await handleInitiativeTimingItems();
 
     const combatants = game.combat.combatants.contents;
 
-    // 각 캐릭터들의 미행동 상태를 콘솔로 출력
-    combatants.forEach((c) => {
-      console.log(
-        `${c.actor.name}의 미행동 상태: ${c.actor.system["battle-status"].unacted}`
-      );
-    });
+    console.log("combatants: ", combatants);
 
-    combatants.forEach((c) => console.log(c.initiative));
-
-    let priorityCombatant = null;
+    let priorityCombatant = null; // 우선권이 있는 캐릭터
 
     const sortedUnactedCombatants = combatants
       .filter((c) => c.actor.system["battle-status"].unacted === true)
-      .filter((c) => c.actor.system["battle-status"].waiting === false)
+      .filter(
+        (c) =>
+          c.actor.system["battle-status"].waiting === false ||
+          c.actor.system["battle-status"].waiting === undefined
+      )
       .sort((a, b) => b.initiative - a.initiative);
 
-    console.log(sortedUnactedCombatants);
+    console.log("sortedUnactedCombatants: ", sortedUnactedCombatants);
 
     const sortedWaitingCombatants = combatants
       .filter((c) => c.actor.system["battle-status"].unacted === true)
       .filter((c) => c.actor.system["battle-status"].waiting === true)
       .sort((a, b) => a.initiative - b.initiative);
 
-    console.log(sortedWaitingCombatants);
+    console.log("sortedWaitingCombatants: ", sortedWaitingCombatants);
 
     if (sortedUnactedCombatants.length > 0) {
       priorityCombatant = sortedUnactedCombatants[0];
@@ -192,8 +203,13 @@ export class CustomCombat extends Combat {
       priorityCombatant = sortedWaitingCombatants[0];
     }
 
+    console.log("우선권이 있는 캐릭터: ", priorityCombatant);
+
     if (!priorityCombatant) {
-      console.log("미행동 상태인 캐릭터가 없습니다.");
+      ChatMessage.create({
+        content:
+          "<h3>모든  캐릭터가 [행동완료] 입니다.</h3><p>클린업 프로세스로 진행합니다.</p>",
+      });
       return false;
     }
 
@@ -207,11 +223,16 @@ export class CustomCombat extends Combat {
     });
 
     priorityCombatant.actor.update({ "system.battle-status.actionPoints": 5 });
+
+    ChatMessage.create({
+      content: `<h3>${priorityCombatant.actor.name}의 턴입니다.</h3><p>${priorityCombatant.actor.name}의 메인 프로세스로 진행합니다.</p>`,
+    });
     return true;
   }
 
   async mainProcess() {
     const message = "메인 프로세스를 실행합니다.";
+    ui.notifications.info(message);
     // get turn combatant
     let combat = game.combat;
 
@@ -219,11 +240,9 @@ export class CustomCombat extends Combat {
 
     const actor = currentCombatant.actor;
 
-    console.log(`${currentCombatant.actor.name}의 메인 프로세스를 실행합니다.`);
-    console.log(currentCombatant);
-    console.log(message);
-    ui.notifications.info(message);
-    ChatMessage.create({ content: message });
+    ChatMessage.create({
+      content: `<h2>메인 프로세스 개시</h2><p>${currentCombatant.actor.name}의 메인 프로세스를 실행합니다.</p>`,
+    });
 
     actor.system["battle-status"].unacted = false;
 
@@ -231,7 +250,7 @@ export class CustomCombat extends Combat {
       new Dialog({
         title: `${actor.name}의 대기 상태 전환`,
         content: `
-        <p>대기 상태로 전환하시겠습니까?</p>
+        <p>${actor.name}의 상태를 [대기]로 전환하시겠습니까?</p>
       `,
         buttons: {
           yes: {
@@ -240,6 +259,9 @@ export class CustomCombat extends Combat {
             callback: async () => {
               actor.system["battle-status"].waiting = true;
               actor.system["battle-status"].unacted = true;
+              await ChatMessage.create({
+                content: `<h3>${actor.name}의 턴이 종료되었습니다.</h3><p>${actor.name}의 상태가 [대기]로 변경되었습니다.</p>`,
+              });
               await combat.nextTurn();
             },
           },
@@ -256,9 +278,11 @@ export class CustomCombat extends Combat {
   }
 
   async cleanupProcess() {
-    const message = "클린업 프로세스를 실행합니다.";
+    const message = "<h2>클린업 프로세스 개시</h2>";
     console.log(message);
     ui.notifications.info(message);
     ChatMessage.create({ content: message });
+    await doRegen();
+    await doPoison();
   }
 }
