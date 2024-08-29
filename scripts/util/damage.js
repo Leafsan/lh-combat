@@ -31,6 +31,12 @@ export async function doDamage(
       damageExplanation.push(
         `${actor.name}이(가) 가장 높은 헤이트(${actorHate})를 가지고 있어 ${directDamage}의 직접 대미지를 추가로 받았습니다.`
       );
+
+      // 헤이트를 1 낮춤
+      if (isOnAttack) {
+        await actor.update({ "system.infos.hate": Math.max(actorHate - 1, 0) });
+        damageExplanation.push(`${actor.name}의 헤이트가 1 감소했습니다.`);
+      }
     }
   }
 

@@ -1,8 +1,10 @@
 import { doPoison } from "./cleanup_process/poison.js";
 import { doRegen } from "./cleanup_process/regen.js";
+import { handleCleanupTimingItems } from "./cleanup_process/useCleanupTiming.js";
 import { handleInitiativeTimingItems } from "./initiative_process/useInitiativeTiming.js";
 import { setUnactedState } from "./setup_process/setUnactedState.js";
 import { handleSetupTimingItems } from "./setup_process/useSetupTiming.js";
+import { handleAlwaysTimingItems } from "./skills/alwaysSkill.js";
 import { resetAllPlayersHate } from "./util/hateReset.js";
 
 export class CustomCombat extends Combat {
@@ -22,6 +24,8 @@ export class CustomCombat extends Combat {
     });
 
     await resetAllPlayersHate();
+
+    await handleAlwaysTimingItems();
 
     // 기본 전투 시작 동작을 수행
     await super.startCombat();
@@ -284,5 +288,6 @@ export class CustomCombat extends Combat {
     ChatMessage.create({ content: message });
     await doRegen();
     await doPoison();
+    await handleCleanupTimingItems();
   }
 }

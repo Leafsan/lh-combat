@@ -1,8 +1,36 @@
 import { CustomCombat } from "./CustomCombat.js";
 import "./sq/sqManager.js";
 
+// 필요한 함수들을 각 파일에서 가져옵니다.
+import { grantAdditionalHit } from "./util/additionalHit.js";
+import { consumeActionPoints } from "./util/apConsume.js";
+import { doDamage } from "./util/damage.js";
+import { grantDamageReduction } from "./util/damageReduction.js";
+import { applyStatusEffects } from "./util/debuff.js";
+import { resetAllPlayersHate } from "./util/hateReset.js";
+import { increaseHate } from "./util/hateUp.js";
+import { doHeal } from "./util/heal.js";
+import { consumeMana } from "./util/manaConsume.js";
+import { resetCharacterState } from "./util/resetChar.js";
+import { grantShield } from "./util/shield.js";
+
 Hooks.on("init", () => {
   CONFIG.Combat.documentClass = CustomCombat;
+
+  // lhCombatFn 네임스페이스를 사용하여 함수들을 등록합니다.
+  game.lhCombatFn = {
+    grantAdditionalHit,
+    consumeActionPoints,
+    doDamage,
+    grantDamageReduction,
+    applyStatusEffects,
+    resetAllPlayersHate,
+    increaseHate,
+    doHeal,
+    consumeMana,
+    resetCharacterState,
+    grantShield,
+  };
 });
 
 Hooks.on("ready", () => {
