@@ -10,7 +10,7 @@ export class CustomCombat extends Combat {
     this.currentProcess = this.customProcesses[this.customProcessIndex];
   }
 
-  // Combat 시작 시 이니셔티브 값을 등록하고 셋업 프로세스를 실행
+  // Combat 시작 시 이니셔티브 값을 등록
   async startCombat() {
     let ids = [];
 
@@ -18,11 +18,13 @@ export class CustomCombat extends Combat {
       ids.push(combatant.id);
     });
 
-    // 이니셔티브 값을 계산하여 설정
-    await this.rollInitiative(ids);
-
     // 기본 전투 시작 동작을 수행
     await super.startCombat();
+
+    // 이니셔티브 값을 계산하여 설정
+    await this.rollInitiative(ids);
+    this.runCustomProcess("setup");
+    this.customProcessIndex = 1;
   }
 
   async rollInitiative(
@@ -37,11 +39,16 @@ export class CustomCombat extends Combat {
       // Get Combatant data
       const c = this.combatants.get(id, { strict: true });
 
+      c.actor.system["battle-status"].unacted = false;
+      c.actor.system["battle-status"].waiting = false;
+      c.actor.system["battle-status"].actionPoints = 0;
+      console.log(c.actor.system["battle-status"]);
+
       let Init;
       if (c.actor.type === "character") {
         Init = c.actor.system["battle-status"].initiative.total ?? 0;
       } else {
-        Init = c.actor.system["battle-status"].initiative ?? 0;
+        Init = c.actor.system["battle-status"].initiative;
       }
 
       // Do not roll for defeated combatants
@@ -73,17 +80,34 @@ export class CustomCombat extends Combat {
   }
 
   async nextTurn() {
-    if (this.customProcessIndex < this.customProcesses.length) {
-      const processName = this.customProcesses[this.customProcessIndex];
-      this.currentProcess = processName;
-      await this.runCustomProcess(processName);
+    const processMap = {
+      setup: async () => {
+        await this.setupProcess();
+        this.customProcessIndex = 1; // to initiative process
+        game.combat.update({ round: game.combat.round + 1 });
+      },
+      initiative: async () => {
+        const isLastTurn = await this.initiativeProcess();
+        if (!isLastTurn) {
+          this.customProcessIndex = 3; // to cleanup process
+        } else {
+          this.customProcessIndex = 2; // to main process
+        }
+      },
+      main: async () => {
+        await this.mainProcess();
+        this.customProcessIndex = 1; // to initiative process
+      },
+      cleanup: async () => {
+        await this.cleanupProcess();
+        this.customProcessIndex = 0; // to setup process
+      },
+    };
 
-      // Move to the next process
-      this.customProcessIndex++;
-    } else {
-      // Reset index and proceed to the next round
-      this.customProcessIndex = 0;
-      await super.nextTurn(); // Call the original nextTurn to proceed to the next turn
+    const processName = this.customProcesses[this.customProcessIndex];
+    this.currentProcess = processName;
+    if (processMap[processName]) {
+      await processMap[processName]();
     }
 
     ui.combat.render(); // UI를 업데이트
@@ -140,40 +164,39 @@ export class CustomCombat extends Combat {
       );
     });
 
-    const unactedCombatants = combatants.filter(
-      (c) => c.actor.system["battle-status"].unacted === true
-    );
+    combatants.forEach((c) => console.log(c.initiative));
 
-    const waitingCombatants = combatants.filter(
-      (c) => c.actor.system["battle-status"].waiting === true
-    );
+    let priorityCombatant = null;
 
-    if (unactedCombatants.length === 0) {
+    const sortedUnactedCombatants = combatants
+      .filter((c) => c.actor.system["battle-status"].unacted === true)
+      .sort((a, b) => b.initiative - a.initiative);
+
+    console.log(sortedUnactedCombatants);
+
+    const sortedWaitingCombatants = combatants
+      .filter((c) => c.actor.system["battle-status"].waiting === true)
+      .sort((a, b) => a.initiative - b.initiative);
+
+    console.log(sortedWaitingCombatants);
+
+    if (sortedUnactedCombatants.length > 0) {
+      priorityCombatant = sortedUnactedCombatants[0];
+    }
+    if (
+      sortedWaitingCombatants.length > 0 &&
+      sortedUnactedCombatants.length === sortedWaitingCombatants.length
+    ) {
+      priorityCombatant = sortedWaitingCombatants[0];
+    }
+
+    if (!priorityCombatant) {
       console.log("미행동 상태인 캐릭터가 없습니다.");
-      this.runCustomProcess("cleanup");
-      return;
+      return false;
     }
-
-    let priorityCombatant;
-
-    if (waitingCombatants.length > 0) {
-      // [대기] 상태 중 [우선권]이 가장 낮은 캐릭터 선택
-      priorityCombatant = waitingCombatants.sort(
-        (a, b) =>
-          a.actor.system["battle-status"].initiative -
-          b.actor.system["battle-status"].initiative
-      )[0];
-    }
-
-    // [미행동] 상태인 캐릭터 중 [우선권]이 가장 높은 캐릭터 선택
-    priorityCombatant = unactedCombatants.sort(
-      (a, b) =>
-        b.actor.system["battle-status"].initiative -
-        a.actor.system["battle-status"].initiative
-    )[0];
 
     console.log(
-      `우선권이 있는 캐릭터: ${priorityCombatant.actor.name} (${priorityCombatant.actor.system["battle-status"].initiative})`
+      `우선권이 있는 캐릭터: ${priorityCombatant.actor.name} (${priorityCombatant.actor.system["battle-status"].initiative.total})`
     );
 
     let combat = game.combat;
@@ -182,6 +205,7 @@ export class CustomCombat extends Combat {
     });
 
     priorityCombatant.actor.update({ "system.battle-status.actionPoints": 5 });
+    return true;
   }
 
   async mainProcess() {
@@ -191,7 +215,7 @@ export class CustomCombat extends Combat {
 
     let currentCombatant = combat.combatants.get(combat.current.combatantId);
 
-    console.log(`${currentCombatant}의 메인 프로세스를 실행합니다.`);
+    console.log(`${currentCombatant.actor.name}의 메인 프로세스를 실행합니다.`);
     console.log(currentCombatant);
     console.log(message);
     ui.notifications.info(message);
