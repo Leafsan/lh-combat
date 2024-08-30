@@ -8,11 +8,12 @@ import { doDamage } from "./util/damage.js";
 import { grantDamageReduction } from "./util/damageReduction.js";
 import { applyStatusEffects } from "./util/debuff.js";
 import { resetAllPlayersHate } from "./util/hateReset.js";
-import { increaseHate } from "./util/hateUp.js";
+import { decreaseHate, increaseHate } from "./util/hateUp.js";
 import { doHeal } from "./util/heal.js";
 import { consumeMana } from "./util/manaConsume.js";
 import { resetCharacterState } from "./util/resetChar.js";
 import { grantShield } from "./util/shield.js";
+import { selectTarget } from "./util/targetSelect.js";
 
 Hooks.on("init", () => {
   CONFIG.Combat.documentClass = CustomCombat;
@@ -26,10 +27,12 @@ Hooks.on("init", () => {
     applyStatusEffects,
     resetAllPlayersHate,
     increaseHate,
+    decreaseHate,
     doHeal,
     consumeMana,
     resetCharacterState,
     grantShield,
+    selectTarget,
   };
 });
 

@@ -25,15 +25,14 @@ export class CustomCombat extends Combat {
 
     await resetAllPlayersHate();
 
+    // 이니셔티브 값을 계산하여 설정
+    await this.rollInitiative(ids);
     await handleAlwaysTimingItems();
+    this.runCustomProcess("setup");
+    this.customProcessIndex = 1;
 
     // 기본 전투 시작 동작을 수행
     await super.startCombat();
-
-    // 이니셔티브 값을 계산하여 설정
-    await this.rollInitiative(ids);
-    this.runCustomProcess("setup");
-    this.customProcessIndex = 1;
   }
 
   async endCombat() {
